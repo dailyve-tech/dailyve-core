@@ -2,9 +2,9 @@
 
 function is_customer_logged_in()
 {
-    // if (session_status() === PHP_SESSION_NONE) {
-    //     session_start();
-    // }
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
 
     // Kiểm tra session
     if (isset($_SESSION['customer_login']) && $_SESSION['customer_login'] === true) {
@@ -62,6 +62,9 @@ function custom_logout()
 }
 
 add_action('init', function () {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     if (isset($_GET['action']) && $_GET['action'] === 'customer_logout') {
         if (is_user_logged_in()) {
             wp_logout();

@@ -55,6 +55,63 @@ function call_api_v2($endpoint, $method = 'GET', $data = [], $headers = [], $tim
     return wp_remote_request($url, $args);
 }
 
+/**
+ * Fetch operators for a specific route from API v2.
+ * Results are cached via WordPress Transients for 1 hour.
+ *
+ * @param string $from  Departure location text (e.g. "Sài Gòn")
+ * @param string $to    Destination location text (e.g. "Bạc Liêu")
+ * @return array|WP_Error  Array of operator items or WP_Error on failure
+ */
+function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
+{
+    $cache_key = 'dv_operators_' . md5($from . '_' . $to . '_' . $from_id . '_' . $to_id);
+    $cached = get_transient($cache_key);
+
+    if ($cached !== false) {
+        return $cached;
+    }
+
+    $params = [
+        'includeSubLocations' => 'true',
+        'limitRoutes'         => '1',
+        'pageSize'            => '100',
+    ];
+
+    if (!empty($from_id) && !empty($to_id)) {
+        $params['from_id'] = $from_id;
+        $params['to_id']   = $to_id;
+    } else {
+        $params['from'] = $from;
+        $params['to']   = $to;
+    }
+
+    $response = call_api_v2('/operators', 'GET', $params);
+
+    if (is_wp_error($response)) {
+        return $response;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    if (empty($data) || !isset($data['items'])) {
+        return new \WP_Error('api_parse_error', 'Không thể phân tích dữ liệu API.');
+    }
+
+    $result = [
+        'items'       => $data['items'] ?? [],
+        'total'       => $data['total'] ?? 0,
+        'totalRoutes' => $data['totalRoutes'] ?? 0,
+    ];
+
+    // Cache for 1 hour
+    set_transient($cache_key, $result, HOUR_IN_SECONDS);
+
+    return $result;
+}
+
+
 function dv_get_client_ip()
 {
     $keys = [
@@ -401,27 +458,37 @@ function caculatorPriceTotal($format = false)
 
         $depart_price = 0;
         $return_price = 0;
-        $count = 1;
-        $temp = 0;
-
-        foreach ($tickets as $ticket) {
-            foreach ($ticket['selectedSeats'] as $item) {
-                $temp += $item['fare'];
-                $total += $item['fare'];
+        foreach ($tickets as $idx => $ticket) {
+            $ticket_fare_sum = 0;
+            if (!empty($ticket['selectedSeats']) && is_array($ticket['selectedSeats'])) {
+                foreach ($ticket['selectedSeats'] as $item) {
+                    $ticket_fare_sum += (float)($item['fare'] ?? 0);
+                }
             }
-            $pickup_subcharge = $ticket['pickupSurcharge'] ? $ticket['pickupSurcharge'] : 0;
-            $dropoff_subcharge = $ticket['dropoffSurcharge'] ? $ticket['dropoffSurcharge'] : 0;
+            $total += $ticket_fare_sum;
+
+            $pickup_subcharge = 0;
+            $dropoff_subcharge = 0;
+            $pickupPointForSurcharge = !empty($ticket['pickupPoint']) ? $ticket['pickupPoint'] : ($ticket['transferPickupPoint'] ?? []);
+            $dropoffPointForSurcharge = !empty($ticket['dropoffPoint']) ? $ticket['dropoffPoint'] : ($ticket['transferDropoffPoint'] ?? []);
+
+            if (isset($pickupPointForSurcharge['surcharge_type']) && (int)$pickupPointForSurcharge['surcharge_type'] === 2) {
+                $pickup_subcharge = (float)($ticket['pickupSurcharge'] ?? 0);
+            }
+            if (isset($dropoffPointForSurcharge['surcharge_type']) && (int)$dropoffPointForSurcharge['surcharge_type'] === 2) {
+                $dropoff_subcharge = (float)($ticket['dropoffSurcharge'] ?? 0);
+            }
+
             $total_subcharge += $pickup_subcharge;
             $total_subcharge += $dropoff_subcharge;
 
-            if ($count == 1) {
-                $depart_price = $temp + $pickup_subcharge + $dropoff_subcharge;
-            } else {
-                $return_price = $temp + $pickup_subcharge + $dropoff_subcharge;
-            }
+            $current_leg_price = $ticket_fare_sum + $pickup_subcharge + $dropoff_subcharge;
 
-            $count++;
-            $temp = 0;
+            if ($idx === 0) {
+                $depart_price = $current_leg_price;
+            } elseif ($idx === 1) {
+                $return_price = $current_leg_price;
+            }
         }
 
         $total += $total_subcharge;
@@ -434,7 +501,11 @@ function caculatorPriceTotal($format = false)
 
         //return $format ? number_format($total, 0, ",", ".") . 'đ' : $total;
     }
-    return $format ? number_format(0, 0, ",", ".") . 'đ' : 0;
+    return [
+        'total_price' => $format ? number_format(0, 0, ",", ".") . 'đ' : 0,
+        'depart_price' => 0,
+        'return_price' => 0
+    ];
 }
 function is_valid_api_key($request)
 {
@@ -5268,10 +5339,11 @@ function save_ticket_to_session()
         session_start();
     }
     $ticket = isset($_POST['ticket']) ? $_POST['ticket'] : null;
+    $legIndex = isset($_POST['legIndex']) && $_POST['legIndex'] !== '' ? (int) $_POST['legIndex'] : null;
     if ($ticket && is_array($ticket)) {
         // Fix: Automatically decode JSON strings if they were sent as part of FormData
         // This ensures compatibility with React's JSON.stringify(payload) approach
-        $json_fields = ['selectedSeats', 'pickupPoint', 'dropoffPoint', 'seatsAndInfoData'];
+        $json_fields = ['selectedSeats', 'pickupPoint', 'dropoffPoint', 'transferPickupPoint', 'transferDropoffPoint', 'seatsAndInfoData'];
         foreach ($json_fields as $field) {
             if (isset($ticket[$field]) && is_string($ticket[$field])) {
                 $decoded = json_decode(stripslashes($ticket[$field]), true);
@@ -5284,7 +5356,13 @@ function save_ticket_to_session()
         if (!isset($_SESSION['tickets'])) {
             $_SESSION['tickets'] = [];
         }
-        $_SESSION['tickets'][] = $ticket;
+        if ($legIndex !== null) {
+            $_SESSION['tickets'][$legIndex] = $ticket;
+            ksort($_SESSION['tickets']);
+            $_SESSION['tickets'] = array_values($_SESSION['tickets']);
+        } else {
+            $_SESSION['tickets'][] = $ticket;
+        }
         wp_send_json_success(['message' => 'Vé đã được lưu!', 'tickets' => $_SESSION['tickets']]);
     } else {
         wp_send_json_error(['message' => 'Không có dữ liệu vé để lưu!']);
