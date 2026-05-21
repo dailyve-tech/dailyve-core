@@ -76,6 +76,8 @@ function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
         'includeSubLocations' => 'true',
         'limitRoutes'         => '1',
         'pageSize'            => '100',
+        'countMappedRoutesOnly' => 'true',
+        'dedupeRoutesByProvince' => 'true'
     ];
 
     if (!empty($from_id) && !empty($to_id)) {
