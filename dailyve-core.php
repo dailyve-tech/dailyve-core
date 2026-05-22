@@ -27,3 +27,20 @@ require_once DAILYVE_CORE_PATH . 'inc/custom-function.php';
 require_once DAILYVE_CORE_PATH . 'inc/bmd-functions.php';
 require_once DAILYVE_CORE_PATH . 'inc/admin-tickets.php';
 
+
+/**
+ * Register ACF Options Page.
+ */
+add_action('acf/init', function () {
+    if (! function_exists('acf_add_options_page')) {
+        return;
+    }
+
+    acf_add_options_page([
+        'page_title'  => 'Slider Báo Chí',
+        'menu_title'  => 'Slider Báo Chí',
+        'menu_slug'   => 'cai-dat-website',
+        'capability'  => 'edit_posts',
+        'redirect'    => false,
+    ]);
+});
