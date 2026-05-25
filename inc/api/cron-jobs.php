@@ -129,7 +129,8 @@ function dailyve_sync_company_reviews_cron()
     }
 }
 
-if (!wp_next_scheduled('dailyve_sync_reviews_event')) {
-    wp_schedule_event(time(), 'daily', 'dailyve_sync_reviews_event');
+// Hủy cronjob crawl review từ api
+if (wp_next_scheduled('dailyve_sync_reviews_event')) {
+    wp_clear_scheduled_hook('dailyve_sync_reviews_event');
 }
-add_action('dailyve_sync_reviews_event', 'dailyve_sync_company_reviews_cron');
+// add_action('dailyve_sync_reviews_event', 'dailyve_sync_company_reviews_cron');
