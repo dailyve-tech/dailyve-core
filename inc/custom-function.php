@@ -1251,4 +1251,31 @@ function ams_execute_ticket_status_check()
     wp_reset_postdata();
   }
 }
+
+function __search_by_title_only($search, $wp_query)
+{
+    global $wpdb;
+
+    if (empty($search) || empty($wp_query->query_vars['search_terms'])) {
+        return $search;
+    }
+
+    $search_terms = $wp_query->query_vars['search_terms'];
+    $like_operator = !empty($wp_query->query_vars['exact']) ? '' : '%';
+
+    $search_clauses = array_map(function ($term) use ($wpdb, $like_operator) {
+        $term_like = $wpdb->esc_like($term);
+        return $wpdb->prepare("{$wpdb->posts}.post_title LIKE %s", "{$like_operator}{$term_like}{$like_operator}");
+    }, $search_terms);
+
+    $search_sql = implode(' AND ', $search_clauses);
+    $search = " AND ({$search_sql})";
+
+    if (!is_user_logged_in()) {
+        $search .= " AND ({$wpdb->posts}.post_password = '')";
+    }
+
+    return $search;
+}
+add_filter('posts_search', '__search_by_title_only', 500, 2);
 ?>

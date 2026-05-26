@@ -65,7 +65,7 @@ function call_api_v2($endpoint, $method = 'GET', $data = [], $headers = [], $tim
  */
 function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
 {
-    $cache_key = 'dv_operators_' . md5($from . '_' . $to . '_' . $from_id . '_' . $to_id);
+    $cache_key = 'dv_operators_v2_' . md5($from . '_' . $to . '_' . $from_id . '_' . $to_id);
     $cached = get_transient($cache_key);
 
     if ($cached !== false) {
@@ -78,7 +78,8 @@ function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
         'pageSize'            => '100',
         'countMappedRoutesOnly' => 'true',
         'dedupeRoutesByProvince' => 'true',
-        'includeReviews' => 'true'
+        'includeReviews' => 'true',
+        'siteKey' => 'dailyve'
     ];
 
     if (!empty($from_id) && !empty($to_id)) {
