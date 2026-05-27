@@ -4,7 +4,7 @@
  * Plugin URI: https://dailyve.com.vn/
  * Description: Core logic for Dailyve Booking System (Extracted from Flatsome Child Theme).
  * Version: 1.0.0
- * Author: Antigravity AI
+ * Author: Nghia Le
  * Text Domain: dailyve-core
  */
 
