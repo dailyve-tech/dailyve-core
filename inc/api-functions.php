@@ -1119,6 +1119,7 @@ add_filter('acf/load_field/name=coupon_route_departure', 'populate_acf_select_ro
 add_filter('acf/load_field/name=coupon_route_destination', 'populate_acf_select_route_area_field');
 add_filter('acf/load_field/name=schedule_departure_point', 'populate_acf_select_route_field');
 add_filter('acf/load_field/name=schedule_destination_point', 'populate_acf_select_route_field');
+add_filter('acf/load_field/name=station_point', 'populate_acf_select_route_field');
 add_filter('acf/load_field/name=routes_destination_point', 'populate_acf_select_route_field');
 add_filter('acf/load_field/name=routes_departure_point', 'populate_acf_select_route_field');
 add_filter('acf/load_field/name=company_id', 'populate_acf_select_company_field');
