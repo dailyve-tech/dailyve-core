@@ -82,7 +82,7 @@ function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
         'siteKey' => 'dailyve'
     ];
 
-    if (!empty($from_id) && !empty($to_id)) {
+    if (!empty($from_id) && !empty($to_id) && !is_numeric($from_id) && !is_numeric($to_id)) {
         $params['from_id'] = $from_id;
         $params['to_id']   = $to_id;
     } else {
