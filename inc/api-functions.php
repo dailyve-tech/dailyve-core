@@ -55,12 +55,24 @@ function call_api_v2($endpoint, $method = 'GET', $data = [], $headers = [], $tim
     return wp_remote_request($url, $args);
 }
 
+
+/**
+ * @param mixed $id
+ * @return bool
+ */
+function dailyve_is_mongo_object_id($id)
+{
+    return $id !== '' && (bool) preg_match('/^[a-f0-9]{24}$/i', (string) $id);
+}
+
 /**
  * Fetch operators for a specific route from API v2.
  * Results are cached via WordPress Transients for 1 hour.
  *
- * @param string $from  Departure location text (e.g. "Sài Gòn")
- * @param string $to    Destination location text (e.g. "Bạc Liêu")
+ * @param string $from     Departure location text (e.g. "Sài Gòn")
+ * @param string $to       Destination location text (e.g. "Bạc Liêu")
+ * @param string $from_id  MongoDB ObjectId string for departure location
+ * @param string $to_id    MongoDB ObjectId string for destination location
  * @return array|WP_Error  Array of operator items or WP_Error on failure
  */
 function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
@@ -82,7 +94,7 @@ function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
         'siteKey' => 'dailyve'
     ];
 
-    if (!empty($from_id) && !empty($to_id) && !is_numeric($from_id) && !is_numeric($to_id)) {
+    if (dailyve_is_mongo_object_id($from_id) && dailyve_is_mongo_object_id($to_id)) {
         $params['from_id'] = $from_id;
         $params['to_id']   = $to_id;
     } else {
@@ -109,8 +121,8 @@ function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
         'totalRoutes' => $data['totalRoutes'] ?? 0,
     ];
 
-    // Cache for 1 hour
-    set_transient($cache_key, $result, HOUR_IN_SECONDS);
+    // Cache for 1 day
+    set_transient($cache_key, $result, DAY_IN_SECONDS);
 
     return $result;
 }
