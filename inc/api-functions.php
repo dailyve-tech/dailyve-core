@@ -93,7 +93,6 @@ function dailyve_get_operators_by_route($from, $to, $from_id = '', $to_id = '')
         'includeReviews' => 'true',
         'siteKey' => 'dailyve'
     ];
-
     if (dailyve_is_mongo_object_id($from_id) && dailyve_is_mongo_object_id($to_id)) {
         $params['from_id'] = $from_id;
         $params['to_id']   = $to_id;
